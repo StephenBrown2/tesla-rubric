@@ -1,0 +1,95 @@
+{
+  "name": "Tesla Rubric",
+  "description": "Evaluation rubric for used Tesla vehicles (Model X focus). Score is the sum of points from each criterion; total maps to a verdict band.",
+  "version": "1",
+  "criteria": [
+    {
+      "id": "price",
+      "name": "Price vs. Baseline ($40,000)",
+      "type": "price",
+      "basePrice": 40000,
+      "pointsPerThousand": -1
+    },
+    {
+      "id": "odometer",
+      "name": "Odometer (miles)",
+      "type": "range_score",
+      "thresholds": [
+        { "max": 20000, "points": 10 },
+        { "max": 40000, "points": 8 },
+        { "max": 60000, "points": 3 },
+        { "max": 80000, "points": 0 },
+        { "max": 100000, "points": -5 },
+        { "max": null, "points": -10 }
+      ]
+    },
+    {
+      "id": "wheels",
+      "name": "Wheel Size",
+      "type": "select",
+      "options": [
+        { "value": "20", "label": "20\" Wheels", "points": 5 },
+        { "value": "22", "label": "22\" Wheels", "points": 0 }
+      ]
+    },
+    {
+      "id": "seats",
+      "name": "Seating Configuration",
+      "type": "select",
+      "options": [
+        { "value": "7", "label": "7 Seats", "points": 5 },
+        { "value": "6", "label": "6 Seats", "points": 0 },
+        { "value": "5", "label": "5 Seats", "points": -10 }
+      ]
+    },
+    {
+      "id": "tow_hitch",
+      "name": "Tow Hitch",
+      "type": "conditional_boolean",
+      "note": "More valuable with 6-seat config",
+      "basePoints": 5,
+      "conditionalPoints": { "when": "seats", "equals": "6", "bonus": 5 }
+    },
+    {
+      "id": "hardware",
+      "name": "Autopilot Hardware",
+      "type": "select",
+      "options": [
+        { "value": "hw4", "label": "HW4 (AI4)", "points": 10 },
+        { "value": "hw3", "label": "HW3 (FSD Computer)", "points": 0 },
+        { "value": "ap2", "label": "AP2", "points": -5 },
+        { "value": "ap1", "label": "AP1", "points": -10 }
+      ]
+    },
+    {
+      "id": "fsd",
+      "name": "FSD Purchased",
+      "type": "boolean",
+      "basePoints": 5
+    },
+    {
+      "id": "warranty",
+      "name": "Remaining CPO / Warranty",
+      "type": "boolean",
+      "basePoints": 5
+    }
+  ],
+  "scoreBands": [
+    { "minScore": 30, "label": "Excellent Deal", "color": "#22c55e" },
+    { "minScore": 15, "label": "Good Buy", "color": "#84cc16" },
+    { "minScore": 5, "label": "Acceptable", "color": "#eab308" },
+    { "minScore": -15, "label": "Questionable", "color": "#f97316" },
+    { "minScore": null, "label": "Avoid", "color": "#ef4444" }
+  ],
+  "scoringAlgorithm": {
+    "summary": "For each criterion, compute points from the selection value; sum all points and round to 1 decimal. Then find the score band by comparing total to minScore (use the band with the highest minScore that is <= total; null minScore means no lower bound).",
+    "rules": {
+      "select": "Find the option where option.value === selection; add option.points.",
+      "boolean": "If selection === true, add basePoints; else add 0.",
+      "conditional_boolean": "If selection === true, add basePoints; if selections[conditionalPoints.when] === conditionalPoints.equals, add conditionalPoints.bonus as well.",
+      "price": "points = -((price - basePrice) / 1000) * |pointsPerThousand|. (e.g. $45k with base $40k and -1 per $1k => -5 points.)",
+      "range_score": "Find the threshold where selection <= threshold.max (use null for Infinity); add that threshold.points."
+    },
+    "inputSchema": "Selections object: keys = criterion id, value = string (select/price/range_score) or boolean (boolean/conditional_boolean). Omit criteria to skip (no points)."
+  }
+}

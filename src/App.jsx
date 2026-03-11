@@ -1,94 +1,35 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import "./App.css";
 
-const defaultCriteria = [
-  {
-    id: "price",
-    name: "Price vs. Baseline ($40,000)",
-    type: "price",
-    basePrice: 40000,
-    pointsPerThousand: -1,
-  },
-  {
-    id: "odometer",
-    name: "Odometer (miles)",
-    type: "range_score",
-    thresholds: [
-      { max: 20000, points: 10 },
-      { max: 40000, points: 8 },
-      { max: 60000, points: 3 },
-      { max: 80000, points: 0 },
-      { max: 100000, points: -5 },
-      { max: Infinity, points: -10 },
-    ],
-  },
-  {
-    id: "wheels",
-    name: "Wheel Size",
-    type: "select",
-    options: [
-      { value: "20", label: '20" Wheels', points: 5 },
-      { value: "22", label: '22" Wheels', points: 0 },
-    ],
-  },
-  {
-    id: "seats",
-    name: "Seating Configuration",
-    type: "select",
-    options: [
-      { value: "7", label: "7 Seats", points: 5 },
-      { value: "6", label: "6 Seats", points: 0 },
-      { value: "5", label: "5 Seats", points: -10 },
-    ],
-  },
-  {
-    id: "tow_hitch",
-    name: "Tow Hitch",
-    type: "conditional_boolean",
-    note: "More valuable with 6-seat config",
-    basePoints: 5,
-    conditionalPoints: { when: "seats", equals: "6", bonus: 5 },
-  },
-  {
-    id: "hardware",
-    name: "Autopilot Hardware",
-    type: "select",
-    options: [
-      { value: "hw4", label: "HW4 (AI4)", points: 10 },
-      { value: "hw3", label: "HW3 (FSD Computer)", points: 0 },
-      { value: "ap2", label: "AP2", points: -5 },
-      { value: "ap1", label: "AP1", points: -10 },
-    ],
-  },
-  {
-    id: "fsd",
-    name: "FSD Purchased",
-    type: "boolean",
-    basePoints: 5,
-  },
-  {
-    id: "warranty",
-    name: "Remaining CPO / Warranty",
-    type: "boolean",
-    basePoints: 5,
-  },
+// Fallback when rubric.json is not available (e.g. file:// or network error). Single source of truth is public/rubric.json.
+const FALLBACK_CRITERIA = [
+  { id: "price", name: "Price vs. Baseline ($40,000)", type: "price", basePrice: 40000, pointsPerThousand: -1 },
+];
+const FALLBACK_SCORE_BANDS = [
+  { minScore: 30, label: "Excellent Deal", color: "#22c55e" },
+  { minScore: 15, label: "Good Buy", color: "#84cc16" },
+  { minScore: 5, label: "Acceptable", color: "#eab308" },
+  { minScore: -15, label: "Questionable", color: "#f97316" },
+  { minScore: null, label: "Avoid", color: "#ef4444" },
 ];
 
-const SCORE_COLOR = (score) => {
-  if (score >= 30) return "#22c55e";
-  if (score >= 15) return "#84cc16";
-  if (score >= 5) return "#eab308";
-  if (score >= -15) return "#f97316";
-  return "#ef4444";
-};
+function normalizeCriteriaFromRubric(criteria) {
+  return (criteria || []).map((c) => {
+    if (c.type === "range_score" && c.thresholds) {
+      return {
+        ...c,
+        thresholds: c.thresholds.map((t) => ({ ...t, max: t.max == null ? Infinity : t.max })),
+      };
+    }
+    return c;
+  });
+}
 
-const SCORE_LABEL = (score) => {
-  if (score >= 30) return "Excellent Deal";
-  if (score >= 15) return "Good Buy";
-  if (score >= 5) return "Acceptable";
-  if (score >= 0) return "Questionable";
-  return "Avoid";
-};
+function getScoreBand(scoreBands, score) {
+  const sorted = [...(scoreBands || [])].sort((a, b) => (b.minScore ?? -Infinity) - (a.minScore ?? -Infinity));
+  const band = sorted.find((b) => b.minScore == null || score >= b.minScore);
+  return band ?? { label: "Avoid", color: "#ef4444" };
+}
 
 const ptClass = (p) => (p > 0 ? "pts-pos" : p < 0 ? "pts-neg" : "pts-neu");
 const ptStr = (p) => `${p >= 0 ? "+" : ""}${p}`;
@@ -129,13 +70,24 @@ function estimateHardwareFromVin(vin) {
 }
 
 export default function TeslaRubric() {
-  const [criteria, setCriteria] = useState(defaultCriteria);
+  const [criteria, setCriteria] = useState(FALLBACK_CRITERIA);
+  const [scoreBands, setScoreBands] = useState(FALLBACK_SCORE_BANDS);
   const [selections, setSelections] = useState({});
   const [tab, setTab] = useState("evaluate");
   const [editingId, setEditingId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCrit, setNewCrit] = useState({ name: "", type: "boolean", basePoints: 1 });
   const [vinForHw, setVinForHw] = useState("");
+
+  useEffect(() => {
+    fetch("/rubric.json")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
+      .then((rubric) => {
+        if (rubric.criteria?.length) setCriteria(normalizeCriteriaFromRubric(rubric.criteria));
+        if (rubric.scoreBands?.length) setScoreBands(rubric.scoreBands);
+      })
+      .catch(() => { /* use fallback criteria and scoreBands */ });
+  }, []);
 
   const setSelection = (id, val) => setSelections((s) => ({ ...s, [id]: val }));
   const hwEstimate = estimateHardwareFromVin(vinForHw);
@@ -180,7 +132,9 @@ export default function TeslaRubric() {
   }, [criteria, selections]);
 
   const { total, details } = computeScore();
-  const scoreColor = SCORE_COLOR(total);
+  const scoreBand = getScoreBand(scoreBands, total);
+  const scoreColor = scoreBand.color;
+  const scoreLabel = scoreBand.label;
 
   const updateCritOption = (critId, optIdx, field, value) =>
     setCriteria((prev) =>
@@ -245,7 +199,7 @@ export default function TeslaRubric() {
         </div>
         <div className="header-score">
           <div className="header-score-value" style={{ color: scoreColor }}>{ptStr(total)}</div>
-          <div className="header-score-label" style={{ color: scoreColor }}>{SCORE_LABEL(total)}</div>
+          <div className="header-score-label" style={{ color: scoreColor }}>{scoreLabel}</div>
         </div>
       </div>
 
@@ -342,7 +296,7 @@ export default function TeslaRubric() {
                 })}
                 <div className="breakdown-total">
                   <span>Total Score</span>
-                  <span style={{ color: scoreColor }}>{ptStr(total)} — {SCORE_LABEL(total)}</span>
+                  <span style={{ color: scoreColor }}>{ptStr(total)} — {scoreLabel}</span>
                 </div>
               </div>
             )}
