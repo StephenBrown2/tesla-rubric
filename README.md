@@ -1,16 +1,49 @@
-# React + Vite
+# Tesla Rubric
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A browser-based evaluation rubric for scoring used Tesla vehicles (focused on Model X). Enter criteria and point values, then score a vehicle to get a total and a verdict (Excellent Deal, Good Buy, Acceptable, Questionable, Avoid).
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Evaluate vehicle** — Fill in price, odometer, seating, wheels, Autopilot hardware, FSD, tow hitch, warranty, etc. Points are summed and color-coded by tier.
+- **VIN-based hardware guess** — Enter a VIN to estimate Autopilot hardware from model year and, for 2023 Model X, from serial number (HW4 from ~Feb 2023 onward). Apply the result to the Autopilot Hardware field.
+- **Editable rubric** — Edit criteria, labels, and point values or add/remove criteria in the Edit Rubric tab.
 
-## React Compiler
+## Run locally
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+**npm:**
+```bash
+npm install
+npm run dev
+```
 
-## Expanding the ESLint configuration
+**Bun:**
+```bash
+bun install
+bun run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Open the URL shown (e.g. http://localhost:5173).
+
+## Build
+
+**npm:**
+```bash
+npm run build
+npm run preview
+```
+
+**Bun:**
+```bash
+bun run build
+bun run preview
+```
+
+Output is in `dist/`. Use the preview command to serve the built app locally.
+
+## Search pre-owned inventory
+
+To search for vehicles that match your preferences (e.g. Model X, 6 seats, HW4, tow package):
+
+**[Tesla Roamer — Pre-owned inventory (Model X, 6-7 seats, HW4, tow package)](https://teslaroamer.com/inventory/pre-owned?autopilot_hardware[]=HW4&model[]=mx&seating[]=6&seating[]=7&sort=price_asc&tow_package=1)**
+
+Adjust filters on that page as needed.
